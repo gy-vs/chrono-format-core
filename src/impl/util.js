@@ -243,24 +243,50 @@ export function untruncateYear(year) {
 
 // PARSING
 
-export function parseZoneInfo(ts, offsetFormat, locale, timeZone = null) {
-  const date = new Date(ts),
-    intlOpts = {
+// Cached Intl.DateTimeFormat instances used to extract a zone's display name
+// (the ZZZZ/ZZZZZ formatting tokens and custom-zone substitution).
+//
+// The formatter's timeZoneName output depends on the locale (which
+// translations/CLDR data are used), the timeZone (null meaning the runtime's
+// system zone), the timeZoneName style ("short", "long", ...), and the
+// instant being formatted. The instant is supplied to formatToParts() on
+// every call and must not be part of the key: DST makes the display name vary
+// within a single (locale, zone, style) tuple, but the formatter itself is
+// instant-independent, so one instance per tuple correctly produces EST or
+// EDT depending on the date it formats. All other options are fixed below,
+// so the tuple fully identifies the instance.
+//
+// The set of keys is therefore bounded by locales x zones x styles actually
+// used (tens of zones in this deployment), not by the volume of records.
+const zoneNameDTFCache = new Map();
+
+function getCachedZoneNameDTF(locale, timeZone, timeZoneName) {
+  const key = JSON.stringify([locale, timeZone, timeZoneName]);
+  let dtf = zoneNameDTFCache.get(key);
+  if (dtf === undefined) {
+    dtf = new Intl.DateTimeFormat(locale, {
       hourCycle: "h23",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
-    };
-
-  if (timeZone) {
-    intlOpts.timeZone = timeZone;
+      timeZoneName,
+      ...(timeZone ? { timeZone } : {}),
+    });
+    zoneNameDTFCache.set(key, dtf);
   }
+  return dtf;
+}
 
-  const modified = { timeZoneName: offsetFormat, ...intlOpts };
+export function resetZoneNameCache() {
+  zoneNameDTFCache.clear();
+}
 
-  const parsed = new Intl.DateTimeFormat(locale, modified)
+export function parseZoneInfo(ts, offsetFormat, locale, timeZone = null) {
+  const date = new Date(ts);
+
+  const parsed = getCachedZoneNameDTF(locale, timeZone, offsetFormat)
     .formatToParts(date)
     .find((m) => m.type.toLowerCase() === "timezonename");
   return parsed ? parsed.value : null;
