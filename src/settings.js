@@ -4,7 +4,7 @@ import Locale from "./impl/locale.js";
 import DateTime from "./datetime.js";
 
 import { normalizeZone } from "./impl/zoneUtil.js";
-import { validateWeekSettings } from "./impl/util.js";
+import { validateWeekSettings, resetZoneInfoCache } from "./impl/util.js";
 import { resetDigitRegexCache } from "./impl/digits.js";
 
 let now = () => Date.now(),
@@ -176,5 +176,6 @@ export default class Settings {
     IANAZone.resetCache();
     DateTime.resetCache();
     resetDigitRegexCache();
+    resetZoneInfoCache();
   }
 }

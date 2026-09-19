@@ -243,6 +243,17 @@ export function untruncateYear(year) {
 
 // PARSING
 
+// Cache of Intl.DateTimeFormat instances used by parseZoneInfo, keyed by locale and
+// options. The formatted timestamp is NOT part of the key: it only enters as the
+// argument to formatToParts(), which resolves the zone name for each instant against
+// the tz database at call time, so a cached instance yields the same output as a
+// freshly constructed one for any timestamp (including around DST transitions).
+const zoneInfoDtfCache = new Map();
+
+export function resetZoneInfoCache() {
+  zoneInfoDtfCache.clear();
+}
+
 export function parseZoneInfo(ts, offsetFormat, locale, timeZone = null) {
   const date = new Date(ts),
     intlOpts = {
@@ -258,11 +269,16 @@ export function parseZoneInfo(ts, offsetFormat, locale, timeZone = null) {
     intlOpts.timeZone = timeZone;
   }
 
-  const modified = { timeZoneName: offsetFormat, ...intlOpts };
+  const modified = { timeZoneName: offsetFormat, ...intlOpts },
+    cacheKey = JSON.stringify([locale, modified]);
 
-  const parsed = new Intl.DateTimeFormat(locale, modified)
-    .formatToParts(date)
-    .find((m) => m.type.toLowerCase() === "timezonename");
+  let dtf = zoneInfoDtfCache.get(cacheKey);
+  if (dtf === undefined) {
+    dtf = new Intl.DateTimeFormat(locale, modified);
+    zoneInfoDtfCache.set(cacheKey, dtf);
+  }
+
+  const parsed = dtf.formatToParts(date).find((m) => m.type.toLowerCase() === "timezonename");
   return parsed ? parsed.value : null;
 }
 

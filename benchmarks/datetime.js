@@ -51,6 +51,9 @@ function runDateTimeSuite() {
       .add("DateTime#toFormat", () => {
         dt.toFormat("yyyy-MM-dd");
       })
+      .add("DateTime#toFormat with zone name", () => {
+        dt.toFormat("yyyy-MM-dd HH:mm:ss ZZZZ");
+      })
       .add("DateTime#toFormat with macro", () => {
         dt.toFormat("T");
       })
